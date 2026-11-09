@@ -171,7 +171,7 @@ h1, h2, h3, p { margin: 0; }
 .tabs button { min-height: 62px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 12px; font-weight: 600; color: var(--muted); }
 .tabs button svg { width: 25px; height: 25px; }
 .tabs button[aria-current="page"] { color: var(--ink); }
-.tabs .tab-home { grid-column: 1; } .tabs .tab-activity { grid-column: 2; } .tabs .tab-bills { grid-column: 4 / 6; }
+.tabs .tab-home { grid-column: 1; } .tabs .tab-activity { grid-column: 2; } .tabs .tab-bills { grid-column: 4; } .tabs .tab-settings { grid-column: 5; }
 .tabs .add-btn { grid-column: 3; grid-row: 1; justify-content: flex-start; }
 .tabs .add-btn span.plus { width: 56px; height: 56px; margin-top: -22px; border-radius: 50%; background: var(--ink); color: var(--on-ink); display: grid; place-items: center; border: 4px solid var(--card); box-shadow: 0 6px 16px rgba(10, 12, 18, .28); }
 .tabs .add-btn span.plus svg { width: 26px; height: 26px; }
@@ -329,6 +329,7 @@ function render() {
     <button class="tab-home" data-act="tab" data-tab="home" aria-current="${nav.tab === 'home' ? 'page' : 'false'}">${I.home}Home</button>
     <button class="tab-activity" data-act="tab" data-tab="activity" aria-current="${nav.tab === 'activity' ? 'page' : 'false'}">${I.list}Activity</button>
     <button class="tab-bills" data-act="tab" data-tab="bills" aria-current="${nav.tab === 'bills' ? 'page' : 'false'}">${I.bill}Bills</button>
+    <button class="tab-settings" data-act="settings" aria-label="Settings">${I.gear}Settings</button>
     <button class="add-btn" data-act="add-tx" aria-label="Add transaction"><span class="plus">${I.plus}</span></button>`;
   updateBadge();
 }
@@ -360,8 +361,7 @@ function viewHome() {
   const cats = Object.entries(byCat).sort((a, b) => b[1] - a[1]).slice(0, 5);
   const max = cats.length ? cats[0][1] : 1;
   const recent = [...D.tx].sort((a, b) => (b.date + b.id) > (a.date + a.id) ? 1 : -1).slice(0, 5);
-  return `<div class="head"><h1>${MONTHS[now0.getMonth()]}</h1>
-      <button class="icon-btn" data-act="settings" aria-label="Settings">${I.gear}</button></div>
+  return `<div class="head"><h1>${MONTHS[now0.getMonth()]}</h1></div>
 
     <section>
       <div class="section-head"><h2>${soon.length ? 'Bills due soon' : 'Bills'}</h2>
