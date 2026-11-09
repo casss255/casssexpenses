@@ -167,12 +167,15 @@ h1, h2, h3, p { margin: 0; }
   background: var(--card); border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
-.tabs .in-tabs { max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; align-items: center; }
+.tabs .in-tabs { max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, 1fr); align-items: center; }
 .tabs button { min-height: 62px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 12px; font-weight: 600; color: var(--muted); }
 .tabs button svg { width: 25px; height: 25px; }
 .tabs button[aria-current="page"] { color: var(--ink); }
-.tabs .add-btn span.plus { width: 46px; height: 46px; border-radius: 15px; background: var(--ink); color: var(--on-ink); display: grid; place-items: center; }
-.tabs .add-btn span.plus svg { width: 24px; height: 24px; }
+.tabs .tab-home { grid-column: 1; } .tabs .tab-activity { grid-column: 2; } .tabs .tab-bills { grid-column: 4 / 6; }
+.tabs .add-btn { grid-column: 3; grid-row: 1; justify-content: flex-start; }
+.tabs .add-btn span.plus { width: 56px; height: 56px; margin-top: -22px; border-radius: 50%; background: var(--ink); color: var(--on-ink); display: grid; place-items: center; border: 4px solid var(--card); box-shadow: 0 6px 16px rgba(10, 12, 18, .28); }
+.tabs .add-btn span.plus svg { width: 26px; height: 26px; }
+.tabs .add-btn:active span.plus { transform: scale(.94); }
 
 /* ---------- Sheet ---------- */
 .scrim { position: fixed; inset: 0; z-index: 40; background: rgba(10, 12, 18, .45); display: flex; align-items: flex-end; justify-content: center; }
@@ -323,9 +326,9 @@ function render() {
   const v = $('#view');
   v.innerHTML = nav.tab === 'activity' ? viewActivity() : nav.tab === 'bills' ? viewBills() : viewHome();
   $('#tabs').innerHTML = `
-    <button data-act="tab" data-tab="home" aria-current="${nav.tab === 'home' ? 'page' : 'false'}">${I.home}Home</button>
-    <button data-act="tab" data-tab="activity" aria-current="${nav.tab === 'activity' ? 'page' : 'false'}">${I.list}Activity</button>
-    <button data-act="tab" data-tab="bills" aria-current="${nav.tab === 'bills' ? 'page' : 'false'}">${I.bill}Bills</button>
+    <button class="tab-home" data-act="tab" data-tab="home" aria-current="${nav.tab === 'home' ? 'page' : 'false'}">${I.home}Home</button>
+    <button class="tab-activity" data-act="tab" data-tab="activity" aria-current="${nav.tab === 'activity' ? 'page' : 'false'}">${I.list}Activity</button>
+    <button class="tab-bills" data-act="tab" data-tab="bills" aria-current="${nav.tab === 'bills' ? 'page' : 'false'}">${I.bill}Bills</button>
     <button class="add-btn" data-act="add-tx" aria-label="Add transaction"><span class="plus">${I.plus}</span></button>`;
   updateBadge();
 }

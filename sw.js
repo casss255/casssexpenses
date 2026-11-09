@@ -1,5 +1,5 @@
 // Bump this version every time index.html changes so phones pick up the update.
-const VERSION = 'money-v1';
+const VERSION = 'money-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
