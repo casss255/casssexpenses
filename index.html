@@ -127,6 +127,25 @@ h1, h2, h3, p { margin: 0; }
 .split b { font-size: 18px; font-weight: 700; }
 .in { color: var(--green); }
 
+/* ---------- Daily spending chart ---------- */
+.daily { background: var(--card); border-radius: 20px; padding: 16px 18px 14px; }
+.daily .seg { margin-bottom: 16px; }
+.daily-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 14px; }
+.daily-top small { display: block; color: var(--muted); font-size: 13px; font-weight: 600; }
+.daily-top b { font-size: 24px; font-weight: 800; letter-spacing: -.02em; }
+.daily-top .avg { text-align: right; }
+.daily-top .avg b { font-size: 17px; font-weight: 700; }
+.daily-chart { display: flex; gap: var(--gap, 6px); }
+.col { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.col .bar { width: 100%; height: 120px; display: flex; align-items: flex-end; }
+.col .bar i { display: block; width: 100%; min-height: 3px; border-radius: 4px 4px 2px 2px; background: color-mix(in srgb, var(--red) 40%, var(--sunk)); }
+.col .bar i.has { background: color-mix(in srgb, var(--red) 55%, var(--card)); }
+.col[aria-pressed="true"] .bar i { background: var(--muted); }
+.col[aria-pressed="true"] .bar i.has { background: var(--red); }
+.col .lab { height: 14px; font-size: 11px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.col[aria-pressed="true"] .lab { color: var(--ink); }
+.col:focus-visible { outline-offset: 0; border-radius: 6px; }
+
 .bars { display: flex; flex-direction: column; gap: 10px; background: var(--card); border-radius: 20px; padding: 16px 18px; }
 .bar-row { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; font-size: 15px; }
 .bar-row .track { grid-column: 1 / -1; height: 8px; border-radius: 4px; background: var(--sunk); overflow: hidden; }
@@ -233,10 +252,12 @@ h1, h2, h3, p { margin: 0; }
 <script>
 /* =================== Data =================== */
 const KEY = 'money.v1';
-const D = Object.assign({ tx: [], bills: [], settings: { daysBefore: 2 } }, (() => {
+const DAILY_RANGES = [7, 14, 30];
+const D = Object.assign({ tx: [], bills: [], settings: { daysBefore: 2, chartDays: 7 } }, (() => {
   try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; }
 })());
-D.settings = Object.assign({ daysBefore: 2 }, D.settings);
+D.settings = Object.assign({ daysBefore: 2, chartDays: 7 }, D.settings);
+if (!DAILY_RANGES.includes(D.settings.chartDays)) D.settings.chartDays = 7;
 function save() { try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) {} updateBadge(); }
 
 /* Category colors follow the rupiah banknote palette */
@@ -301,6 +322,15 @@ function sums(list) {
   list.forEach(t => t.type === 'in' ? inc += t.amount : exp += t.amount);
   return { inc, exp, net: inc - exp };
 }
+/* Money out for each of the last n days, oldest first, ending today. Days with nothing spent count as 0. */
+function dailyOut(n) {
+  const byDay = {}, end = parse(today());
+  D.tx.forEach(t => { if (t.type === 'out') byDay[t.date] = (byDay[t.date] || 0) + t.amount; });
+  return Array.from({ length: n }, (_, i) => {
+    const d = new Date(end); d.setDate(end.getDate() - (n - 1 - i));
+    const date = iso(d); return { date, amount: byDay[date] || 0 };
+  });
+}
 function updateBadge() {
   try { const n = dueSoon().length; if (navigator.setAppBadge) n ? navigator.setAppBadge(n) : navigator.clearAppBadge(); } catch (e) {}
 }
@@ -320,7 +350,7 @@ const I = {
 
 /* =================== Navigation =================== */
 const now0 = new Date();
-let nav = { tab: 'home', y: now0.getFullYear(), m: now0.getMonth() };
+let nav = { tab: 'home', y: now0.getFullYear(), m: now0.getMonth(), pick: null };
 function go(tab) { nav.tab = tab; render(); window.scrollTo(0, 0); }
 function render() {
   const v = $('#view');
@@ -350,6 +380,26 @@ function stub(b) {
       <button class="pay" data-act="pay" data-id="${b.id}">Mark as paid</button></div>
     </div>
   </article>`;
+}
+function dailyChart() {
+  const n = D.settings.chartDays, days = dailyOut(n);
+  const total = days.reduce((a, d) => a + d.amount, 0), max = Math.max(1, ...days.map(d => d.amount));
+  const sel = days.find(d => d.date === nav.pick) || days[n - 1];
+  const every = n === 30 ? 5 : n === 14 ? 2 : 1; // which columns get a date label; today always has one
+  const cols = days.map((d, i) => {
+    const dt = parse(d.date), label = n === 7 ? WD[dt.getDay()] : dt.getDate();
+    return `<button class="col" data-act="pick-day" data-date="${d.date}" aria-pressed="${d === sel}" aria-label="${fmtDate(d.date)}: ${rp(d.amount)}">
+      <span class="bar"><i class="${d.amount ? 'has' : ''}" style="height:${d.amount ? Math.max(4, d.amount / max * 100) : 0}%"></i></span>
+      <span class="lab">${(n - 1 - i) % every === 0 ? label : ''}</span></button>`;
+  }).join('');
+  return `<div class="daily">
+    <div class="seg" role="group" aria-label="Chart range">${DAILY_RANGES.map(r => `<button data-act="range" data-n="${r}" aria-pressed="${r === n}">${r} days</button>`).join('')}</div>
+    <div class="daily-top">
+      <div><small>${sel.date === today() ? 'Today' : fmtDate(sel.date)}</small><b class="num">${rp(sel.amount)}</b></div>
+      <div class="avg"><small>Average per day</small><b class="num">${rp(total / n)}</b></div>
+    </div>
+    <div class="daily-chart" style="--gap:${n === 30 ? 2 : n === 14 ? 4 : 8}px" role="group" aria-label="Money out per day, last ${n} days">${cols}</div>
+  </div>`;
 }
 function viewHome() {
   const soon = dueSoon();
@@ -428,6 +478,8 @@ function viewActivity() {
         <div><small>Money out</small><b class="num">${rp(s.exp)}</b></div>
       </div>
     </div>
+    <div class="section-head" style="margin:20px 0 10px"><h2>Spending per day</h2></div>
+    ${dailyChart()}
     ${list.length ? Object.keys(groups).map(d => {
       const daySum = groups[d].reduce((a, t) => a + (t.type === 'in' ? t.amount : -t.amount), 0);
       return `<div class="day-label"><span>${d === today() ? 'Today' : fmtDate(d)}</span><span class="num">${daySum < 0 ? '−' : '+'}${rp(daySum)}</span></div>
@@ -550,6 +602,8 @@ document.addEventListener('click', e => {
     case 'edit-bill': billSheet(D.bills.find(x => x.id === b.dataset.id)); break;
     case 'settings': settingsSheet(); break;
     case 'close': closeSheet(); break;
+    case 'range': D.settings.chartDays = +b.dataset.n; save(); render(); break;
+    case 'pick-day': nav.pick = b.dataset.date; render(); break;
     case 'month': {
       const d = new Date(nav.y, nav.m + +b.dataset.d, 1); nav.y = d.getFullYear(); nav.m = d.getMonth(); render(); break;
     }
@@ -611,7 +665,8 @@ document.addEventListener('change', e => {
       const d = JSON.parse(txt);
       if (!Array.isArray(d.tx) || !Array.isArray(d.bills)) throw new Error('bad');
       if (!confirm(`Replace the data on this phone with this backup (${d.tx.length} transactions, ${d.bills.length} bills)?`)) return;
-      D.tx = d.tx; D.bills = d.bills; D.settings = Object.assign({ daysBefore: 2 }, d.settings);
+      D.tx = d.tx; D.bills = d.bills; D.settings = Object.assign({ daysBefore: 2, chartDays: 7 }, d.settings);
+      if (!DAILY_RANGES.includes(D.settings.chartDays)) D.settings.chartDays = 7;
       save(); closeSheet(); render(); toast('Backup restored');
     }).catch(() => toast('That file is not a valid backup.'));
   }
