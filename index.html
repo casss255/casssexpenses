@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Money & Bills</title>
-<meta name="description" content="Track spending and income, and see bills on your home screen two days before they are due.">
+<meta name="description" content="Track your spending, and see bills on your home screen two days before they are due.">
 <meta name="theme-color" content="#EEF1F5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#12141B" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -121,11 +121,6 @@ h1, h2, h3, p { margin: 0; }
 .month { background: var(--card); border-radius: 20px; padding: 16px 18px 18px; }
 .month .label { color: var(--muted); font-size: 14px; font-weight: 600; }
 .month .big { font-size: 38px; font-weight: 800; line-height: 1.1; margin: 2px 0 14px; letter-spacing: -.02em; }
-.split { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.split div { background: var(--sunk); border-radius: 12px; padding: 10px 12px; }
-.split small { display: block; color: var(--muted); font-size: 13px; font-weight: 600; }
-.split b { font-size: 18px; font-weight: 700; }
-.in { color: var(--green); }
 
 /* ---------- Daily spending chart ---------- */
 .daily { background: var(--card); border-radius: 20px; padding: 16px 18px 14px; }
@@ -260,7 +255,7 @@ D.settings = Object.assign({ daysBefore: 2, chartDays: 7 }, D.settings);
 if (!DAILY_RANGES.includes(D.settings.chartDays)) D.settings.chartDays = 7;
 function save() { try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) {} updateBadge(); }
 
-/* Category colors follow the rupiah banknote palette */
+/* Category colors follow the rupiah banknote palette. Only spending is tracked; old income entries stay in the data but are never shown or counted. */
 const CATS = {
   food:      { name: 'Food & drink',  c: 'var(--red)' },
   transport: { name: 'Transport',     c: 'var(--blue)' },
@@ -271,13 +266,8 @@ const CATS = {
   fun:       { name: 'Entertainment', c: 'var(--amber)' },
   family:    { name: 'Family',        c: 'var(--purple)' },
   other:     { name: 'Other',         c: 'var(--grey)' },
-  salary:    { name: 'Salary',        c: 'var(--green)', income: true },
-  business:  { name: 'Business',      c: 'var(--blue)', income: true },
-  gift:      { name: 'Gift',          c: 'var(--amber)', income: true },
-  otherin:   { name: 'Other income',  c: 'var(--grey)', income: true },
 };
-const EXP_CATS = Object.keys(CATS).filter(k => !CATS[k].income);
-const INC_CATS = Object.keys(CATS).filter(k => CATS[k].income);
+const EXP_CATS = Object.keys(CATS);
 const REPEATS = { monthly: 'Every month', yearly: 'Every year', weekly: 'Every week', once: 'One time' };
 
 /* =================== Helpers =================== */
@@ -316,16 +306,13 @@ function dueSoon() { const t = today(); return activeBills().filter(b => daysBet
 function monthlyBillCost() {
   return activeBills().reduce((a, b) => a + (b.repeat === 'monthly' ? b.amount : b.repeat === 'weekly' ? b.amount * 52 / 12 : b.repeat === 'yearly' ? b.amount / 12 : 0), 0);
 }
-function monthTx(y, m) { const p = `${y}-${pad(m + 1)}`; return D.tx.filter(t => t.date.startsWith(p)); }
-function sums(list) {
-  let inc = 0, exp = 0;
-  list.forEach(t => t.type === 'in' ? inc += t.amount : exp += t.amount);
-  return { inc, exp, net: inc - exp };
-}
+const spending = () => D.tx.filter(t => t.type !== 'in');
+function monthTx(y, m) { const p = `${y}-${pad(m + 1)}`; return spending().filter(t => t.date.startsWith(p)); }
+const total = list => list.reduce((a, t) => a + t.amount, 0);
 /* Money out for each of the last n days, oldest first, ending today. Days with nothing spent count as 0. */
 function dailyOut(n) {
   const byDay = {}, end = parse(today());
-  D.tx.forEach(t => { if (t.type === 'out') byDay[t.date] = (byDay[t.date] || 0) + t.amount; });
+  spending().forEach(t => { byDay[t.date] = (byDay[t.date] || 0) + t.amount; });
   return Array.from({ length: n }, (_, i) => {
     const d = new Date(end); d.setDate(end.getDate() - (n - 1 - i));
     const date = iso(d); return { date, amount: byDay[date] || 0 };
@@ -405,12 +392,11 @@ function viewHome() {
   const soon = dueSoon();
   const next = activeBills().find(b => !soon.includes(b));
   const list = monthTx(now0.getFullYear(), now0.getMonth());
-  const s = sums(list);
   const byCat = {};
-  list.filter(t => t.type === 'out').forEach(t => byCat[t.cat] = (byCat[t.cat] || 0) + t.amount);
+  list.forEach(t => byCat[t.cat] = (byCat[t.cat] || 0) + t.amount);
   const cats = Object.entries(byCat).sort((a, b) => b[1] - a[1]).slice(0, 5);
   const max = cats.length ? cats[0][1] : 1;
-  const recent = [...D.tx].sort((a, b) => (b.date + b.id) > (a.date + a.id) ? 1 : -1).slice(0, 5);
+  const recent = spending().sort((a, b) => (b.date + b.id) > (a.date + a.id) ? 1 : -1).slice(0, 5);
   return `<div class="head"><h1>${MONTHS[now0.getMonth()]}</h1></div>
 
     <section>
@@ -425,12 +411,8 @@ function viewHome() {
 
     <section class="section">
       <div class="month">
-        <div class="label">Left this month</div>
-        <div class="big num" style="${s.net < 0 ? 'color:var(--red)' : ''}">${s.net < 0 ? '−' : ''}${rp(s.net)}</div>
-        <div class="split">
-          <div><small>Money in</small><b class="num in">${rp(s.inc)}</b></div>
-          <div><small>Money out</small><b class="num">${rp(s.exp)}</b></div>
-        </div>
+        <div class="label">Spent this month</div>
+        <div class="big num" style="margin-bottom:0">${rp(total(list))}</div>
       </div>
     </section>
 
@@ -454,14 +436,13 @@ function txItem(t) {
   return `<button class="item" data-act="edit-tx" data-id="${t.id}" style="--c:${c.c}">
     <span class="badge">${esc(initials(c.name))}</span>
     <span class="mid"><b>${esc(t.note || c.name)}</b><small>${esc(t.note ? c.name : '')}${t.note ? ', ' : ''}${fmtDate(t.date)}</small></span>
-    <span class="val num ${t.type === 'in' ? 'in' : ''}">${t.type === 'in' ? '+' : '−'}${rp(t.amount)}</span>
+    <span class="val num">${rp(t.amount)}</span>
   </button>`;
 }
 
 /* =================== Activity =================== */
 function viewActivity() {
   const list = monthTx(nav.y, nav.m).sort((a, b) => (b.date + b.id) > (a.date + a.id) ? 1 : -1);
-  const s = sums(list);
   const groups = {};
   list.forEach(t => (groups[t.date] = groups[t.date] || []).push(t));
   return `<div class="head"><h1>Activity</h1></div>
@@ -471,18 +452,13 @@ function viewActivity() {
       <button data-act="month" data-d="1" aria-label="Next month">${I.right}</button>
     </div>
     <div class="month" style="margin-bottom:4px">
-      <div class="label">Left in ${MONTHS[nav.m]}</div>
-      <div class="big num" style="font-size:32px;${s.net < 0 ? 'color:var(--red)' : ''}">${s.net < 0 ? '−' : ''}${rp(s.net)}</div>
-      <div class="split">
-        <div><small>Money in</small><b class="num in">${rp(s.inc)}</b></div>
-        <div><small>Money out</small><b class="num">${rp(s.exp)}</b></div>
-      </div>
+      <div class="label">Spent in ${MONTHS[nav.m]}</div>
+      <div class="big num" style="font-size:32px;margin-bottom:0">${rp(total(list))}</div>
     </div>
     <div class="section-head" style="margin:20px 0 10px"><h2>Spending per day</h2></div>
     ${dailyChart()}
     ${list.length ? Object.keys(groups).map(d => {
-      const daySum = groups[d].reduce((a, t) => a + (t.type === 'in' ? t.amount : -t.amount), 0);
-      return `<div class="day-label"><span>${d === today() ? 'Today' : fmtDate(d)}</span><span class="num">${daySum < 0 ? '−' : '+'}${rp(daySum)}</span></div>
+      return `<div class="day-label"><span>${d === today() ? 'Today' : fmtDate(d)}</span><span class="num">${rp(total(groups[d]))}</span></div>
         <div class="list">${groups[d].map(txItem).join('')}</div>`;
     }).join('') : `<div class="empty" style="margin-top:14px">Nothing recorded in ${MONTHS[nav.m]}.</div>`}`;
 }
@@ -519,18 +495,17 @@ function openSheet(html) {
 }
 function closeSheet() { const s = $('#scrim'); s.hidden = true; s.innerHTML = ''; document.body.style.overflow = ''; sheetState = null; }
 
-function catChips(type, sel) {
-  return (type === 'in' ? INC_CATS : EXP_CATS).map(k => `<button type="button" class="cat" data-act="pick-cat" data-cat="${k}" aria-pressed="${k === sel}" style="--c:${CATS[k].c}"><i class="dot"></i>${CATS[k].name}</button>`).join('');
+function catChips(sel) {
+  return EXP_CATS.map(k => `<button type="button" class="cat" data-act="pick-cat" data-cat="${k}" aria-pressed="${k === sel}" style="--c:${CATS[k].c}"><i class="dot"></i>${CATS[k].name}</button>`).join('');
 }
 function txSheet(t) {
-  sheetState = t ? { kind: 'tx', id: t.id, type: t.type, cat: t.cat } : { kind: 'tx', id: null, type: 'out', cat: 'food' };
+  sheetState = t ? { kind: 'tx', id: t.id, cat: t.cat } : { kind: 'tx', id: null, cat: 'food' };
   const st = sheetState;
   openSheet(`<div class="sheet-head"><h2>${t ? 'Edit transaction' : 'New transaction'}</h2>
       <button class="icon-btn" data-act="close" aria-label="Close">${I.close}</button></div>
-    <div class="seg"><button data-act="tx-type" data-type="out" aria-pressed="${st.type === 'out'}">Expense</button><button data-act="tx-type" data-type="in" aria-pressed="${st.type === 'in'}">Income</button></div>
     <div class="amount-field"><label for="f-amt">Amount</label><div class="wrap"><span>Rp</span>
       <input id="f-amt" class="money" inputmode="numeric" autocomplete="off" placeholder="0" value="${t ? t.amount.toLocaleString('id-ID') : ''}"></div></div>
-    <div class="cats" id="cats">${catChips(st.type, st.cat)}</div>
+    <div class="cats" id="cats">${catChips(st.cat)}</div>
     <label class="field"><span>Note</span><input id="f-note" maxlength="60" placeholder="e.g. Lunch with team" value="${esc(t ? t.note : '')}"></label>
     <label class="field"><span>Date</span><input id="f-date" type="date" value="${t ? t.date : today()}"></label>
     <button class="primary" data-act="save-tx">${t ? 'Save changes' : 'Add transaction'}</button>
@@ -550,7 +525,7 @@ function billSheet(b) {
       <label class="field"><span>Repeats</span><select id="b-rep">${Object.keys(REPEATS).map(k => `<option value="${k}" ${k === st.repeat ? 'selected' : ''}>${REPEATS[k]}</option>`).join('')}</select></label>
     </div>
     <p class="hint">It will show on Home ${D.settings.daysBefore} days before this date.</p>
-    <div class="cats" id="cats">${EXP_CATS.map(k => `<button type="button" class="cat" data-act="pick-cat" data-cat="${k}" aria-pressed="${k === st.cat}" style="--c:${CATS[k].c}"><i class="dot"></i>${CATS[k].name}</button>`).join('')}</div>
+    <div class="cats" id="cats">${catChips(st.cat)}</div>
     <button class="primary" data-act="save-bill">${b ? 'Save changes' : 'Add bill'}</button>
     ${b && !b.done ? `<button class="ghost" data-act="pay" data-id="${b.id}">Mark as paid</button>` : ''}
     ${b ? '<button class="danger" data-act="del-bill">Delete bill</button>' : ''}`);
@@ -607,17 +582,13 @@ document.addEventListener('click', e => {
     case 'month': {
       const d = new Date(nav.y, nav.m + +b.dataset.d, 1); nav.y = d.getFullYear(); nav.m = d.getMonth(); render(); break;
     }
-    case 'tx-type':
-      st.type = b.dataset.type; st.cat = st.type === 'in' ? 'salary' : 'food';
-      document.querySelectorAll('[data-act="tx-type"]').forEach(x => x.setAttribute('aria-pressed', x.dataset.type === st.type));
-      $('#cats').innerHTML = catChips(st.type, st.cat); break;
     case 'pick-cat':
       st.cat = b.dataset.cat;
       document.querySelectorAll('#cats .cat').forEach(x => x.setAttribute('aria-pressed', x.dataset.cat === st.cat)); break;
     case 'save-tx': {
       const amount = digits($('#f-amt').value);
       if (!amount) { $('#f-amt').focus(); toast('Enter an amount first.'); return; }
-      const rec = { type: st.type, amount, cat: st.cat, note: $('#f-note').value.trim(), date: $('#f-date').value || today() };
+      const rec = { type: 'out', amount, cat: st.cat, note: $('#f-note').value.trim(), date: $('#f-date').value || today() };
       if (st.id) Object.assign(D.tx.find(t => t.id === st.id), rec); else D.tx.push(Object.assign({ id: uid() }, rec));
       const isNew = !st.id;
       save(); closeSheet(); render(); toast(isNew ? 'Transaction added' : 'Changes saved'); break;

@@ -1,6 +1,6 @@
 # Money & Bills (PWA)
 
-Track spending and income, and keep track of bills. Any bill due within 2 days (adjustable in Settings) shows up on the Home screen with a "Mark as paid" button. Paying a bill records it as an expense and moves the due date to the next cycle.
+Track your spending and keep track of bills. Any bill due within 2 days (adjustable in Settings) shows up on the Home screen with a "Mark as paid" button. Paying a bill records it as an expense and moves the due date to the next cycle.
 
 ## Publish on GitHub Pages
 

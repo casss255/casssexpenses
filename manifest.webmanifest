@@ -1,7 +1,7 @@
 {
   "name": "Money & Bills",
   "short_name": "Money",
-  "description": "Track spending and income, and see bills two days before they are due.",
+  "description": "Track your spending, and see bills two days before they are due.",
   "lang": "en",
   "start_url": "./",
   "scope": "./",

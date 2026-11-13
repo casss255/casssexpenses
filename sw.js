@@ -1,5 +1,5 @@
 // Bump this version every time index.html changes so phones pick up the update.
-const VERSION = 'money-v5';
+const VERSION = 'money-v6';
 // Several apps share this origin (casss255.github.io), so only touch caches that belong to this one.
 const PREFIX = 'money-';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
